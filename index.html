@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="日用品のストックを簡単に管理できるツール。在庫数の増減、カテゴリ別管理、アラート機能を搭載。">
+    <title>ストック管理 - 日用品在庫トラッカー</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+JP:wght@300;400;500;600;700&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#0f0f1a">
+</head>
+
+<body>
+    <div class="app">
+        <!-- ヘッダー -->
+        <header class="header">
+            <div class="header-content">
+                <div class="header-left">
+                    <div class="logo">
+                        <span class="logo-icon">📦</span>
+                        <h1>日用品在庫管理アプリ</h1>
+                    </div>
+                </div>
+                <div class="header-right">
+                    <div class="stats">
+                        <div class="stat-item active" id="filter-all" role="button" tabindex="0">
+                            <span class="stat-value" id="stat-total-val">0</span>
+                            <span class="stat-label">アイテム</span>
+                        </div>
+                        <div class="stat-item stat-warning" id="filter-low" role="button" tabindex="0">
+                            <span class="stat-value" id="stat-low-val">0</span>
+                            <span class="stat-label">残りわずか</span>
+                        </div>
+                        <div class="stat-item stat-danger" id="filter-out" role="button" tabindex="0">
+                            <span class="stat-value" id="stat-out-val">0</span>
+                            <span class="stat-label">在庫切れ</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- ツールバー -->
+        <div class="toolbar">
+            <div class="toolbar-content">
+                <div class="search-box">
+                    <input type="text" id="search-input" placeholder="アイテムを検索..." autocomplete="off">
+                </div>
+                <div class="category-filters" id="category-filters">
+                    <button class="filter-btn active" data-category="all">すべて</button>
+                    <button class="filter-btn" data-category="bathroom">🛁 洗面・バス</button>
+                    <button class="filter-btn" data-category="kitchen">🍳 キッチン</button>
+                    <button class="filter-btn" data-category="cleaning">🧹 掃除</button>
+                    <button class="filter-btn" data-category="laundry">👕 洗濯</button>
+                    <button class="filter-btn" data-category="paper">🧻 紙類</button>
+                    <button class="filter-btn" data-category="other">📎 その他</button>
+                </div>
+                <button class="add-btn" id="add-btn" title="新しいアイテムを追加">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                        <path d="M12 5v14M5 12h14"></path>
+                    </svg>
+                    <span>追加</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- メインコンテンツ -->
+        <main class="main">
+            <div class="items-grid" id="items-grid">
+                <!-- アイテムカードがここに動的に生成される -->
+            </div>
+            <div class="empty-state" id="empty-state" style="display: none;">
+                <div class="empty-icon">📋</div>
+                <h2>アイテムがありません</h2>
+                <p>「追加」ボタンから日用品を登録しましょう</p>
+            </div>
+        </main>
+    </div>
+
+    <!-- 追加/編集モーダル -->
+    <div class="modal-overlay" id="modal-overlay">
+        <div class="modal" id="item-modal">
+            <div class="modal-header">
+                <h2 id="modal-title">アイテムを追加</h2>
+                <button class="modal-close" id="modal-close" title="閉じる">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M18 6 6 18M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+            <form id="item-form">
+                <input type="hidden" id="item-id">
+                <div class="form-group">
+                    <label for="item-name">アイテム名 <span class="required">*</span></label>
+                    <input type="text" id="item-name" placeholder="例: トイレットペーパー" required>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="item-category">カテゴリ</label>
+                        <select id="item-category">
+                            <option value="bathroom">🛁 洗面・バス</option>
+                            <option value="kitchen">🍳 キッチン</option>
+                            <option value="cleaning">🧹 掃除</option>
+                            <option value="laundry">👕 洗濯</option>
+                            <option value="paper">🧻 紙類</option>
+                            <option value="other">📎 その他</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="item-unit">単位</label>
+                        <input type="text" id="item-unit" placeholder="例: 個, 本, パック">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="item-quantity">現在の在庫数</label>
+                        <input type="number" id="item-quantity" min="0" value="0">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="item-threshold">在庫僅か閾値</label>
+                        <input type="number" id="item-threshold" min="0" value="2">
+                    </div>
+                    <div class="form-group">
+                        <label for="item-max">在庫上限値 (100%)</label>
+                        <input type="number" id="item-max" min="1" value="10">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="item-notes">メモ</label>
+                    <textarea id="item-notes" placeholder="メモを入力（任意）" rows="2"></textarea>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" id="modal-cancel">キャンセル</button>
+                    <button type="submit" class="btn btn-primary" id="modal-submit">追加する</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 削除確認モーダル -->
+    <div class="modal-overlay" id="delete-overlay">
+        <div class="modal modal-small">
+            <div class="modal-header">
+                <h2>削除の確認</h2>
+            </div>
+            <p class="delete-message" id="delete-message">このアイテムを削除しますか？</p>
+            <div class="form-actions">
+                <button class="btn btn-secondary" id="delete-cancel">キャンセル</button>
+                <button class="btn btn-danger" id="delete-confirm">削除する</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- トースト通知 -->
+    <div class="toast-container" id="toast-container"></div>
+
+    <script src="app.js"></script>
+</body>
+
+</html>
