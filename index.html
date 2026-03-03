@@ -162,6 +162,30 @@
     <!-- トースト通知 -->
     <div class="toast-container" id="toast-container"></div>
 
+    <!-- Firebase SDK -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, orderBy } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+        // Firebase Configuration (Paste your config here)
+        const firebaseConfig = {
+            apiKey: "AIzaSyAp0Dk5SVk497oGSQpePEO_45rjjE4GCp8",
+            authDomain: "list-3fcea.firebaseapp.com",
+            projectId: "list-3fcea",
+            storageBucket: "list-3fcea.firebasestorage.app",
+            messagingSenderId: "508067614947",
+            appId: "1:508067614947:web:cfdc87c2077708dcdab5d6",
+            measurementId: "G-K76P5PJ899"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        // Expose Firebase to app.js
+        window.firebaseDB = db;
+        window.firestoreTools = { collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, orderBy };
+    </script>
     <script src="app.js"></script>
 </body>
 

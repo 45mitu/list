@@ -23,36 +23,33 @@ class StockManager {
         this.init();
     }
 
-    init() {
-        this.loadData();
+    async init() {
         this.bindEvents();
-        this.render();
+        this.setupFirebase();
     }
 
-    /* ----- Data Persistence ----- */
-
-    loadData() {
-        try {
-            const saved = localStorage.getItem('stock-manager-items');
-            if (saved) {
-                this.items = JSON.parse(saved);
-            } else {
-                this.items = this.getDefaultItems();
-                this.saveData();
-            }
-        } catch (e) {
-            console.error('データの読み込みに失敗しました:', e);
-            this.items = this.getDefaultItems();
+    setupFirebase() {
+        if (!window.firebaseDB) {
+            console.error('Firebase DB is not initialized');
+            return;
         }
+
+        const { collection, onSnapshot, query, orderBy } = window.firestoreTools;
+        this.db = window.firebaseDB;
+        this.itemsRef = collection(this.db, 'items');
+
+        // Real-time synchronization
+        const q = query(this.itemsRef, orderBy('name'));
+        onSnapshot(q, (snapshot) => {
+            this.items = snapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data()
+            }));
+            this.render();
+        });
     }
 
-    saveData() {
-        try {
-            localStorage.setItem('stock-manager-items', JSON.stringify(this.items));
-        } catch (e) {
-            console.error('データの保存に失敗しました:', e);
-        }
-    }
+    /* ----- Data Persistence (Migrated to Firebase) ----- */
 
     getDefaultItems() {
         return [
@@ -162,63 +159,88 @@ class StockManager {
 
     /* ----- CRUD Operations ----- */
 
-    addItem(itemData) {
-        const newItem = {
-            id: this.generateId(),
-            ...itemData
-        };
-        this.items.push(newItem);
-        this.saveData();
-        this.render();
-        this.showToast('✅', `${newItem.name} を追加しました`);
+    async addItem(itemData) {
+        const { addDoc } = window.firestoreTools;
+        try {
+            await addDoc(this.itemsRef, itemData);
+            this.showToast('✅', `${itemData.name} を追加しました`);
+        } catch (e) {
+            console.error('アイテムの追加に失敗しました:', e);
+            this.showToast('⚠️', 'データの保存に失敗しました');
+        }
     }
 
-    updateItem(id, itemData) {
-        const index = this.items.findIndex(item => item.id === id);
-        if (index === -1) return;
-        this.items[index] = { ...this.items[index], ...itemData };
-        this.saveData();
-        this.render();
-        this.showToast('✏️', `${this.items[index].name} を更新しました`);
+    async updateItem(id, itemData) {
+        const { updateDoc, doc } = window.firestoreTools;
+        const itemRef = doc(this.db, 'items', id);
+        try {
+            await updateDoc(itemRef, itemData);
+            this.showToast('✏️', `${itemData.name} を更新しました`);
+        } catch (e) {
+            console.error('アイテムの更新に失敗しました:', e);
+            this.showToast('⚠️', 'データの更新に失敗しました');
+        }
     }
 
-    deleteItem(id) {
+    async deleteItem(id) {
         const item = this.items.find(item => item.id === id);
         if (!item) return;
+
+        const { deleteDoc, doc } = window.firestoreTools;
+        const itemRef = doc(this.db, 'items', id);
 
         const card = document.querySelector(`.item-card[data-id="${id}"]`);
         if (card) {
             card.classList.add('removing');
-            setTimeout(() => {
-                this.items = this.items.filter(item => item.id !== id);
-                this.saveData();
-                this.render();
-                this.showToast('🗑️', `${item.name} を削除しました`);
+            setTimeout(async () => {
+                try {
+                    await deleteDoc(itemRef);
+                    this.showToast('🗑️', `${item.name} を削除しました`);
+                } catch (e) {
+                    console.error('アイテムの削除に失敗しました:', e);
+                    this.showToast('⚠️', 'データの削除に失敗しました');
+                }
             }, 300);
         } else {
-            this.items = this.items.filter(item => item.id !== id);
-            this.saveData();
-            this.render();
-            this.showToast('🗑️', `${item.name} を削除しました`);
+            try {
+                await deleteDoc(itemRef);
+                this.showToast('🗑️', `${item.name} を削除しました`);
+            } catch (e) {
+                console.error('アイテムの削除に失敗しました:', e);
+            }
         }
     }
 
-    incrementQuantity(id) {
+    async incrementQuantity(id) {
         const item = this.items.find(item => item.id === id);
         if (!item) return;
-        item.quantity++;
-        this.saveData();
-        this.updateCardDisplay(id);
-        this.updateStats();
+
+        const { updateDoc, doc } = window.firestoreTools;
+        const itemRef = doc(this.db, 'items', id);
+
+        try {
+            await updateDoc(itemRef, {
+                quantity: item.quantity + 1
+            });
+        } catch (e) {
+            console.error('数量の更新に失敗しました:', e);
+        }
     }
 
-    decrementQuantity(id) {
+    async decrementQuantity(id) {
         const item = this.items.find(item => item.id === id);
         if (!item || item.quantity <= 0) return;
-        item.quantity--;
-        this.saveData();
-        this.updateCardDisplay(id);
-        this.updateStats();
+
+        const { updateDoc, doc } = window.firestoreTools;
+        const itemRef = doc(this.db, 'items', id);
+
+        try {
+            await updateDoc(itemRef, {
+                quantity: item.quantity - 1
+            });
+        } catch (e) {
+            console.error('数量の更新に失敗しました:', e);
+        }
     }
 
     /* ----- UI Updates ----- */
