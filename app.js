@@ -20,17 +20,25 @@ class StockManager {
             other: '📎 その他'
         };
 
+        this.isLoading = true;
         this.init();
     }
 
     async init() {
         this.bindEvents();
-        this.setupFirebase();
+        // Wait for Firebase to be ready via the globally exposed object
+        if (window.firebaseConfigReady) {
+            this.setupFirebase();
+        } else {
+            // Fallback if the script isn't quite ready
+            window.addEventListener('firebase-ready', () => this.setupFirebase());
+        }
     }
 
     setupFirebase() {
         if (!window.firebaseDB) {
             console.error('Firebase DB is not initialized');
+            this.showToast('⚠️', 'データベースの準備に失敗しました');
             return;
         }
 
@@ -38,15 +46,59 @@ class StockManager {
         this.db = window.firebaseDB;
         this.itemsRef = collection(this.db, 'items');
 
+        // Show connecting toast
+        this.showToast('📡', 'データベースに接続中...');
+
         // Real-time synchronization
         const q = query(this.itemsRef, orderBy('name'));
-        onSnapshot(q, (snapshot) => {
-            this.items = snapshot.docs.map(doc => ({
+        onSnapshot(q, async (snapshot) => {
+            const firebaseItems = snapshot.docs.map(doc => ({
                 id: doc.id,
                 ...doc.data()
             }));
+
+            // One-time Migration: If Firebase is empty but localStore has items
+            if (firebaseItems.length === 0 && this.isLoading) {
+                const localItems = this.getLocalData();
+                if (localItems && localItems.length > 0) {
+                    this.showToast('🔄', '以前のデータを移行しています...');
+                    await this.migrateLocalDataToFirebase(localItems);
+                    // The onSnapshot will trigger again after adds
+                    return;
+                }
+            }
+
+            this.items = firebaseItems;
+            this.isLoading = false;
             this.render();
+        }, (error) => {
+            console.error('Firebase sync error:', error);
+            this.showToast('⚠️', '同期エラーが発生しました');
         });
+    }
+
+    getLocalData() {
+        try {
+            const saved = localStorage.getItem('stock-manager-items');
+            return saved ? JSON.parse(saved) : null;
+        } catch (e) {
+            return null;
+        }
+    }
+
+    async migrateLocalDataToFirebase(localItems) {
+        const { addDoc } = window.firestoreTools;
+        for (const item of localItems) {
+            const { id, ...itemData } = item; // Remove old local ID
+            try {
+                await addDoc(this.itemsRef, itemData);
+            } catch (e) {
+                console.error('Migration failed for item:', item.name);
+            }
+        }
+        // Once done, clear local storage to prevent future migration attempts
+        localStorage.removeItem('stock-manager-items');
+        this.showToast('✨', 'データの移行が完了しました');
     }
 
     /* ----- Data Persistence (Migrated to Firebase) ----- */
@@ -522,5 +574,6 @@ class StockManager {
 
 // Initialize app
 document.addEventListener('DOMContentLoaded', () => {
-    window.stockManager = new StockManager();
+    // We don't initialize here anymore because index.html module script will handle it
+    // ensuring Firebase tools are available.
 });

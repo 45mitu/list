@@ -11,7 +11,7 @@
     <link
         href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+JP:wght@300;400;500;600;700&display=swap"
         rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=2">
+    <link rel="stylesheet" href="style.css?v=3">
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#0f0f1a">
 </head>
@@ -167,7 +167,6 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, orderBy } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-        // Firebase Configuration (Paste your config here)
         const firebaseConfig = {
             apiKey: "AIzaSyAp0Dk5SVk497oGSQpePEO_45rjjE4GCp8",
             authDomain: "list-3fcea.firebaseapp.com",
@@ -179,12 +178,32 @@
         };
 
         // Initialize Firebase
-        const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
+        try {
+            const app = initializeApp(firebaseConfig);
+            const db = getFirestore(app);
 
-        // Expose Firebase to app.js
-        window.firebaseDB = db;
-        window.firestoreTools = { collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, orderBy };
+            // Expose tools and flag for app.js
+            window.firebaseDB = db;
+            window.firestoreTools = { collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, orderBy };
+            window.firebaseConfigReady = true;
+
+            // Signal that Firebase is ready
+            window.dispatchEvent(new CustomEvent('firebase-ready'));
+
+            // Initialize the app if StockManager class is available
+            if (window.StockManager) {
+                window.stockManager = new window.StockManager();
+            } else {
+                // If app.js isn't loaded yet, wait for DOMContentLoaded
+                window.addEventListener('load', () => {
+                    if (!window.stockManager && window.StockManager) {
+                        window.stockManager = new window.StockManager();
+                    }
+                });
+            }
+        } catch (error) {
+            console.error("Firebase initialization failed:", error);
+        }
     </script>
     <script src="app.js"></script>
 </body>
