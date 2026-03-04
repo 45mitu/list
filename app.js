@@ -26,77 +26,59 @@ class StockManager {
 
     async init() {
         this.bindEvents();
-        // Wait for Firebase to be ready via the globally exposed object
-        if (window.firebaseConfigReady) {
-            this.setupFirebase();
+        this.apiUrl = window.APP_CONFIG ? window.APP_CONFIG.API_URL : '';
+
+        if (this.apiUrl) {
+            await this.loadData();
         } else {
-            // Fallback if the script isn't quite ready
-            window.addEventListener('firebase-ready', () => this.setupFirebase());
+            this.showToast('ℹ️', 'APIのURLが設定されていません');
+            this.isLoading = false;
+            this.render();
         }
     }
 
-    setupFirebase() {
-        if (!window.firebaseDB) {
-            console.error('Firebase DB is not initialized');
-            this.showToast('⚠️', 'データベースの準備に失敗しました');
-            return;
-        }
+    async loadData() {
+        this.showToast('📡', 'データを読み込み中...');
+        try {
+            const response = await fetch(this.apiUrl);
+            if (!response.ok) throw new Error('Network response was not ok');
+            this.items = await response.json();
 
-        const { collection, onSnapshot, query, orderBy } = window.firestoreTools;
-        this.db = window.firebaseDB;
-        this.itemsRef = collection(this.db, 'items');
-
-        // Show connecting toast
-        this.showToast('📡', 'データベースに接続中...');
-
-        // Real-time synchronization
-        const q = query(this.itemsRef, orderBy('name'));
-        onSnapshot(q, async (snapshot) => {
-            const firebaseItems = snapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data()
-            }));
-
-            // One-time Migration: If Firebase is empty but localStore has items
-            if (firebaseItems.length === 0 && this.isLoading) {
+            // Migrate local data if exists and Sheets is empty (one-time)
+            if (this.items.length === 0) {
                 const localItems = this.getLocalData();
                 if (localItems && localItems.length > 0) {
                     this.showToast('🔄', '以前のデータを移行しています...');
-                    await this.migrateLocalDataToFirebase(localItems);
-                    // The onSnapshot will trigger again after adds
-                    return;
+                    await this.migrateLocalDataToSheets(localItems);
+                    await this.loadData(); // Re-load after migration
                 }
             }
 
-            this.items = firebaseItems;
             this.isLoading = false;
             this.render();
-        }, (error) => {
-            console.error('Firebase sync error:', error);
-            this.showToast('⚠️', '同期エラーが発生しました');
-        });
-    }
-
-    getLocalData() {
-        try {
-            const saved = localStorage.getItem('stock-manager-items');
-            return saved ? JSON.parse(saved) : null;
-        } catch (e) {
-            return null;
+        } catch (error) {
+            console.error('Data load error:', error);
+            this.showToast('⚠️', '読み込みに失敗しました');
+            this.isLoading = false;
+            this.render();
         }
     }
 
-    async migrateLocalDataToFirebase(localItems) {
-        const { addDoc } = window.firestoreTools;
+    async migrateLocalDataToSheets(localItems) {
         for (const item of localItems) {
-            const { id, ...itemData } = item; // Remove old local ID
+            const { id, ...itemData } = item;
             try {
-                await addDoc(this.itemsRef, itemData);
+                await fetch(this.apiUrl, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        action: 'add',
+                        data: itemData
+                    })
+                });
             } catch (e) {
                 console.error('Migration failed for item:', item.name);
             }
         }
-        // Once done, clear local storage to prevent future migration attempts
         localStorage.removeItem('stock-manager-items');
         this.showToast('✨', 'データの移行が完了しました');
     }
@@ -211,25 +193,39 @@ class StockManager {
 
     /* ----- CRUD Operations ----- */
 
-    async addItem(itemData) {
-        const { addDoc } = window.firestoreTools;
+    async callApi(action, data = {}, id = null) {
         try {
-            await addDoc(this.itemsRef, itemData);
-            this.showToast('✅', `${itemData.name} を追加しました`);
+            const body = { action, data };
+            if (id) body.id = id;
+
+            const response = await fetch(this.apiUrl, {
+                method: 'POST',
+                body: JSON.stringify(body)
+            });
+            if (!response.ok) throw new Error('API request failed');
+            return await response.json();
         } catch (e) {
-            console.error('アイテムの追加に失敗しました:', e);
+            console.error(`API Error (${action}):`, e);
+            throw e;
+        }
+    }
+
+    async addItem(itemData) {
+        try {
+            await this.callApi('add', itemData);
+            this.showToast('✅', `${itemData.name} を追加しました`);
+            await this.loadData();
+        } catch (e) {
             this.showToast('⚠️', 'データの保存に失敗しました');
         }
     }
 
     async updateItem(id, itemData) {
-        const { updateDoc, doc } = window.firestoreTools;
-        const itemRef = doc(this.db, 'items', id);
         try {
-            await updateDoc(itemRef, itemData);
+            await this.callApi('update', itemData, id);
             this.showToast('✏️', `${itemData.name} を更新しました`);
+            await this.loadData();
         } catch (e) {
-            console.error('アイテムの更新に失敗しました:', e);
             this.showToast('⚠️', 'データの更新に失敗しました');
         }
     }
@@ -238,27 +234,24 @@ class StockManager {
         const item = this.items.find(item => item.id === id);
         if (!item) return;
 
-        const { deleteDoc, doc } = window.firestoreTools;
-        const itemRef = doc(this.db, 'items', id);
-
         const card = document.querySelector(`.item-card[data-id="${id}"]`);
         if (card) {
             card.classList.add('removing');
             setTimeout(async () => {
                 try {
-                    await deleteDoc(itemRef);
+                    await this.callApi('delete', {}, id);
                     this.showToast('🗑️', `${item.name} を削除しました`);
+                    await this.loadData();
                 } catch (e) {
-                    console.error('アイテムの削除に失敗しました:', e);
                     this.showToast('⚠️', 'データの削除に失敗しました');
                 }
             }, 300);
         } else {
             try {
-                await deleteDoc(itemRef);
-                this.showToast('🗑️', `${item.name} を削除しました`);
+                await this.callApi('delete', {}, id);
+                await this.loadData();
             } catch (e) {
-                console.error('アイテムの削除に失敗しました:', e);
+                console.error('Delete failed:', e);
             }
         }
     }
@@ -267,15 +260,13 @@ class StockManager {
         const item = this.items.find(item => item.id === id);
         if (!item) return;
 
-        const { updateDoc, doc } = window.firestoreTools;
-        const itemRef = doc(this.db, 'items', id);
-
         try {
-            await updateDoc(itemRef, {
-                quantity: item.quantity + 1
-            });
+            const updatedData = { ...item, quantity: item.quantity + 1 };
+            delete updatedData.id; // Remove ID from data payload
+            await this.callApi('update', updatedData, id);
+            await this.loadData();
         } catch (e) {
-            console.error('数量の更新に失敗しました:', e);
+            console.error('Increment failed:', e);
         }
     }
 
@@ -283,15 +274,13 @@ class StockManager {
         const item = this.items.find(item => item.id === id);
         if (!item || item.quantity <= 0) return;
 
-        const { updateDoc, doc } = window.firestoreTools;
-        const itemRef = doc(this.db, 'items', id);
-
         try {
-            await updateDoc(itemRef, {
-                quantity: item.quantity - 1
-            });
+            const updatedData = { ...item, quantity: item.quantity - 1 };
+            delete updatedData.id;
+            await this.callApi('update', updatedData, id);
+            await this.loadData();
         } catch (e) {
-            console.error('数量の更新に失敗しました:', e);
+            console.error('Decrement failed:', e);
         }
     }
 

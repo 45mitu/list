@@ -162,50 +162,11 @@
     <!-- トースト通知 -->
     <div class="toast-container" id="toast-container"></div>
 
-    <!-- Firebase SDK -->
     <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, orderBy } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
-
-        const firebaseConfig = {
-            apiKey: "AIzaSyAp0Dk5SVk497oGSQpePEO_45rjjE4GCp8",
-            authDomain: "list-3fcea.firebaseapp.com",
-            projectId: "list-3fcea",
-            storageBucket: "list-3fcea.firebasestorage.app",
-            messagingSenderId: "508067614947",
-            appId: "1:508067614947:web:cfdc87c2077708dcdab5d6",
-            measurementId: "G-K76P5PJ899"
-        };
-
-        // Initialize Firebase
-        try {
-            const app = initializeApp(firebaseConfig);
-            const db = getFirestore(app);
-
-            // Expose tools and flag for app.js
-            window.firebaseDB = db;
-            window.firestoreTools = { collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, orderBy };
-            window.firebaseConfigReady = true;
-
-            // Signal that Firebase is ready
-            window.dispatchEvent(new CustomEvent('firebase-ready'));
-
-            // Initialize the app if StockManager class is available
-            if (window.StockManager) {
-                window.stockManager = new window.StockManager();
-            } else {
-                // If app.js isn't loaded yet, wait for DOMContentLoaded
-                window.addEventListener('load', () => {
-                    if (!window.stockManager && window.StockManager) {
-                        window.stockManager = new window.StockManager();
-                    }
-                });
-            }
-        } catch (error) {
-            console.error("Firebase initialization failed:", error);
-        }
+        import { config } from "./config.js";
+        window.APP_CONFIG = config;
     </script>
-    <script src="app.js"></script>
+    <script type="module" src="app.js"></script>
 </body>
 
 </html>
