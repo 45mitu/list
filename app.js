@@ -1,6 +1,4 @@
-/* ==========================================
-   Stock Manager Application
-   ========================================== */
+import { config } from "./config.js";
 
 class StockManager {
     constructor() {
@@ -26,7 +24,7 @@ class StockManager {
 
     async init() {
         this.bindEvents();
-        this.apiUrl = window.APP_CONFIG ? window.APP_CONFIG.API_URL : '';
+        this.apiUrl = config.API_URL;
 
         if (this.apiUrl) {
             await this.loadData();
@@ -61,6 +59,15 @@ class StockManager {
             this.showToast('⚠️', '読み込みに失敗しました');
             this.isLoading = false;
             this.render();
+        }
+    }
+
+    getLocalData() {
+        try {
+            const saved = localStorage.getItem('stock-manager-items');
+            return saved ? JSON.parse(saved) : null;
+        } catch (e) {
+            return null;
         }
     }
 
