@@ -203,7 +203,9 @@ class StockManager {
                 body: JSON.stringify(body)
             });
             if (!response.ok) throw new Error('API request failed');
-            return await response.json();
+            const result = await response.json();
+
+            return result;
         } catch (e) {
             console.error(`API Error (${action}):`, e);
             throw e;
@@ -562,7 +564,4 @@ class StockManager {
 }
 
 // Initialize app
-document.addEventListener('DOMContentLoaded', () => {
-    // We don't initialize here anymore because index.html module script will handle it
-    // ensuring Firebase tools are available.
-});
+new StockManager();

@@ -10,7 +10,7 @@ function doGet() {
   const headers = data.shift();
   
   const result = data.map((row, index) => {
-    const obj = { id: index + 2 }; // 行番号をIDとして使用（1行目はヘッダーなので+1、0インデックスなので+1）
+    const obj = { id: index + 2 }; // 行番号をIDとして使用
     headers.forEach((header, i) => {
       obj[header] = row[i];
     });
@@ -35,7 +35,7 @@ function doPost(e) {
   }
   
   if (action === 'update') {
-    const id = params.id; // 行番号
+    const id = params.id;
     const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
     const updateData = headers.map(header => params.data[header] !== undefined ? params.data[header] : "");
     sheet.getRange(id, 1, 1, headers.length).setValues([updateData]);
@@ -44,7 +44,7 @@ function doPost(e) {
   }
   
   if (action === 'delete') {
-    const id = params.id; // 行番号
+    const id = params.id;
     sheet.deleteRow(id);
     return ContentService.createTextOutput(JSON.stringify({status: 'success'}))
       .setMimeType(ContentService.MimeType.JSON);
