@@ -207,11 +207,19 @@ class StockManager {
 
             const response = await fetch(this.apiUrl, {
                 method: 'POST',
+                // Explicitly not setting Content-Type to keep it as a "Simple Request" for GAS
                 body: JSON.stringify(body)
             });
-            if (!response.ok) throw new Error('API request failed');
-            const result = await response.json();
 
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`HTTP ${response.status}: ${errorText || 'API request failed'}`);
+            }
+
+            const result = await response.json();
+            if (result.status === 'error') {
+                throw new Error(result.message || 'Server error');
+            }
             return result;
         } catch (e) {
             console.error(`API Error (${action}):`, e);
@@ -225,7 +233,7 @@ class StockManager {
             this.showToast('✅', `${itemData.name} を追加しました`);
             await this.loadData();
         } catch (e) {
-            this.showToast('⚠️', 'データの保存に失敗しました');
+            this.showToast('⚠️', `保存失敗: ${e.message}`);
         }
     }
 

@@ -1,52 +1,82 @@
 /**
  * 日用品ストック管理用 API (Google Apps Script)
- * 機能を「デプロイ」>「新しいデプロイ」>「種類:ウェブアプリ」で公開して使用してください。
- * アクセスできるユーザー: 「全員」に設定する必要があります。
  */
 
 function doGet() {
-  const sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
-  const data = sheet.getDataRange().getValues();
-  const headers = data.shift();
-  
-  const result = data.map((row, index) => {
-    const obj = { id: index + 2 }; // 行番号をIDとして使用
-    headers.forEach((header, i) => {
-      obj[header] = row[i];
+  try {
+    const sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+    const range = sheet.getDataRange();
+    if (range.isBlank()) {
+      return createJsonResponse([]);
+    }
+    
+    const data = range.getValues();
+    const headers = data.shift();
+    
+    if (headers.length === 0) return createJsonResponse([]);
+
+    const result = data.map((row, index) => {
+      const obj = { id: index + 2 };
+      headers.forEach((header, i) => {
+        if (header) obj[header] = row[i];
+      });
+      return obj;
     });
-    return obj;
-  });
-  
-  return ContentService.createTextOutput(JSON.stringify(result))
-    .setMimeType(ContentService.MimeType.JSON);
+    
+    return createJsonResponse(result);
+  } catch (e) {
+    return createJsonResponse({status: 'error', message: e.toString()});
+  }
 }
 
 function doPost(e) {
-  const params = JSON.parse(e.postData.contents);
-  const action = params.action;
-  const sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
-  
-  if (action === 'add') {
-    const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
-    const newRow = headers.map(header => params.data[header] || "");
-    sheet.appendRow(newRow);
-    return ContentService.createTextOutput(JSON.stringify({status: 'success'}))
-      .setMimeType(ContentService.MimeType.JSON);
+  try {
+    if (!e || !e.postData || !e.postData.contents) {
+      throw new Error("No post data received");
+    }
+    
+    const params = JSON.parse(e.postData.contents);
+    const action = params.action;
+    const sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+    
+    // Ensure we have headers even in an empty sheet
+    let headers = [];
+    if (sheet.getLastColumn() > 0) {
+      headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+    } else {
+      // Default headers if empty
+      headers = ['name', 'category', 'quantity', 'threshold', 'max', 'unit', 'notes'];
+      sheet.appendRow(headers);
+    }
+    
+    if (action === 'add') {
+      const newRow = headers.map(header => params.data[header] !== undefined ? params.data[header] : "");
+      sheet.appendRow(newRow);
+      return createJsonResponse({status: 'success'});
+    }
+    
+    if (action === 'update') {
+      const id = parseInt(params.id);
+      if (isNaN(id)) throw new Error("Invalid ID for update");
+      const updateData = headers.map(header => params.data[header] !== undefined ? params.data[header] : "");
+      sheet.getRange(id, 1, 1, headers.length).setValues([updateData]);
+      return createJsonResponse({status: 'success'});
+    }
+    
+    if (action === 'delete') {
+      const id = parseInt(params.id);
+      if (isNaN(id)) throw new Error("Invalid ID for delete");
+      sheet.deleteRow(id);
+      return createJsonResponse({status: 'success'});
+    }
+    
+    throw new Error("Unknown action: " + action);
+  } catch (e) {
+    return createJsonResponse({status: 'error', message: e.toString()});
   }
-  
-  if (action === 'update') {
-    const id = params.id;
-    const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
-    const updateData = headers.map(header => params.data[header] !== undefined ? params.data[header] : "");
-    sheet.getRange(id, 1, 1, headers.length).setValues([updateData]);
-    return ContentService.createTextOutput(JSON.stringify({status: 'success'}))
-      .setMimeType(ContentService.MimeType.JSON);
-  }
-  
-  if (action === 'delete') {
-    const id = params.id;
-    sheet.deleteRow(id);
-    return ContentService.createTextOutput(JSON.stringify({status: 'success'}))
-      .setMimeType(ContentService.MimeType.JSON);
-  }
+}
+
+function createJsonResponse(data) {
+  return ContentService.createTextOutput(JSON.stringify(data))
+    .setMimeType(ContentService.MimeType.JSON);
 }
