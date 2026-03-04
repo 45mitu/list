@@ -24,12 +24,19 @@ class StockManager {
 
     async init() {
         this.bindEvents();
-        this.apiUrl = config.API_URL;
 
-        if (this.apiUrl) {
+        // config.js からの読み込み、またはグローバル変数（念のため）
+        this.apiUrl = (typeof config !== 'undefined' && config.API_URL) ? config.API_URL : '';
+
+        if (!this.apiUrl && window.APP_CONFIG) {
+            this.apiUrl = window.APP_CONFIG.API_URL;
+        }
+
+        if (this.apiUrl && this.apiUrl.startsWith('http')) {
             await this.loadData();
         } else {
-            this.showToast('ℹ️', 'APIのURLが設定されていません');
+            console.error('API URL is missing or invalid:', this.apiUrl);
+            this.showToast('⚠️', 'APIのURLが正しく設定されていません。config.js を確認してください。');
             this.isLoading = false;
             this.render();
         }
