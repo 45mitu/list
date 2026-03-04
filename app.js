@@ -1,28 +1,51 @@
 import { config } from "./config.js";
 
+// グローバルエラーハンドラー
+window.onerror = function (msg, url, line, col, error) {
+    const errorMsg = `エラーが発生しました: ${msg} (行: ${line})`;
+    console.error(errorMsg, error);
+    if (window.showToast) {
+        window.showToast('⚠️', errorMsg);
+    } else {
+        alert(errorMsg);
+    }
+    return false;
+};
+
 class StockManager {
     constructor() {
-        this.items = [];
-        this.currentFilter = 'all';
-        this.searchQuery = '';
-        this.editingId = null;
-        this.deletingId = null;
-        this.currentStatusFilter = 'all'; // 'all', 'low', 'out'
+        try {
+            this.items = [];
+            this.currentFilter = 'all';
+            this.searchQuery = '';
+            this.editingId = null;
+            this.deletingId = null;
+            this.currentStatusFilter = 'all';
 
-        this.categoryLabels = {
-            bathroom: '🛁 洗面・バス',
-            kitchen: '🍳 キッチン',
-            cleaning: '🧹 掃除',
-            laundry: '👕 洗濯',
-            paper: '🧻 紙類',
-            other: '📎 その他'
-        };
+            this.categoryLabels = {
+                bathroom: '🛁 洗面・バス',
+                kitchen: '🍳 キッチン',
+                cleaning: '🧹 掃除',
+                laundry: '👕 洗濯',
+                paper: '🧻 紙類',
+                other: '📎 その他'
+            };
 
-        this.isLoading = true;
-        this.init();
+            this.isLoading = true;
+            this.init();
+        } catch (e) {
+            console.error('Constructor error:', e);
+            alert('アプリの起動中にエラーが発生しました: ' + e.message);
+        }
     }
 
     async init() {
+        if (window.location.protocol === 'file:') {
+            alert('警告: ESモジュールは「file://」プロトコル（ファイルを直接開く）では動作しません。ローカルサーバー（server.ps1など）を使用するか、GitHub Pagesにアップロードして確認してください。');
+            this.isLoading = false;
+            this.render();
+            return;
+        }
         this.bindEvents();
 
         // config.js からの読み込み、またはグローバル変数（念のため）
@@ -564,6 +587,7 @@ class StockManager {
     /* ----- Toast Notifications ----- */
 
     showToast(icon, message) {
+        window.showToast = this.showToast.bind(this); // グローバルに公開
         const container = document.getElementById('toast-container');
         const toast = document.createElement('div');
         toast.className = 'toast';
