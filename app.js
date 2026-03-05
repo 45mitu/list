@@ -278,7 +278,8 @@ class StockManager {
     }
 
     async deleteItem(id) {
-        const item = this.items.find(item => item.id === id);
+        const numericId = Number(id);
+        const item = this.items.find(item => item.id === numericId);
         if (!item) return;
 
         const card = document.querySelector(`.item-card[data-id="${id}"]`);
@@ -304,7 +305,8 @@ class StockManager {
     }
 
     async incrementQuantity(id) {
-        const item = this.items.find(item => item.id === id);
+        const numericId = Number(id);
+        const item = this.items.find(item => item.id === numericId);
         if (!item) return;
 
         try {
@@ -318,7 +320,8 @@ class StockManager {
     }
 
     async decrementQuantity(id) {
-        const item = this.items.find(item => item.id === id);
+        const numericId = Number(id);
+        const item = this.items.find(item => item.id === numericId);
         if (!item || item.quantity <= 0) return;
 
         try {
@@ -334,7 +337,8 @@ class StockManager {
     /* ----- UI Updates ----- */
 
     updateCardDisplay(id) {
-        const item = this.items.find(item => item.id === id);
+        const numericId = Number(id);
+        const item = this.items.find(item => item.id === numericId);
         if (!item) return;
 
         const card = document.querySelector(`.item-card[data-id="${id}"]`);
@@ -515,7 +519,8 @@ class StockManager {
     }
 
     openEditModal(id) {
-        const item = this.items.find(item => item.id === id);
+        const numericId = Number(id);
+        const item = this.items.find(item => item.id === numericId);
         if (!item) return;
 
         this.editingId = id;
@@ -564,7 +569,8 @@ class StockManager {
     /* ----- Delete Modal ----- */
 
     openDeleteModal(id) {
-        const item = this.items.find(item => item.id === id);
+        const numericId = Number(id);
+        const item = this.items.find(item => item.id === numericId);
         if (!item) return;
 
         this.deletingId = id;
